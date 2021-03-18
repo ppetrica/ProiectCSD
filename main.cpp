@@ -18,6 +18,13 @@ int main(int argc, char *argv[]) {
 
     const char *ip = argv[1];
 
+    bool server = false;
+    if (argc == 3) {
+        if (strcmp(argv[2], "-s")) {
+            server = true;
+        }
+    }
+
     sockaddr_in sa;
     sa.sin_family = AF_INET;
     sa.sin_port = htons(16969);
@@ -35,20 +42,25 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Create a SOCKET for connecting to server
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (sock == INVALID_SOCKET) {
-        printf("socket failed with error: %ld\n", WSAGetLastError());
-        WSACleanup();
-        return 1;
+    SOCKET sock = INVALID_SOCKET;
+    if (!server) {
+        // Create a SOCKET for connecting to server
+        sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock == INVALID_SOCKET) {
+            printf("socket failed with error: %ld\n", WSAGetLastError());
+            WSACleanup();
+            return 1;
+        }
+
+        printf("Trying to connect to server\n");
+        // Connect to server.
+        res = connect(sock, (struct sockaddr*)&sa, sizeof(sa));
     }
 
-    printf("Trying to connect to server\n");
-    // Connect to server.
-    res = connect(sock, (struct sockaddr *)&sa, sizeof(sa));
-    if (res == SOCKET_ERROR) {
-        printf("Waiting for client on %s", ip);
+    if (server || res == SOCKET_ERROR) {
         closesocket(sock);
+        
+        printf("Waiting for client on %s", ip);
 
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock == INVALID_SOCKET) {
