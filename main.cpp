@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
     bool server = false;
     if (argc == 3) {
-        if (strcmp(argv[2], "-s")) {
+        if (strcmp(argv[2], "-s") == 0) {
             server = true;
         }
     }
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     if (server || res == SOCKET_ERROR) {
         closesocket(sock);
         
-        printf("Waiting for client on %s", ip);
+        printf("Waiting for client on %s\n", ip);
 
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock == INVALID_SOCKET) {
@@ -72,25 +72,25 @@ int main(int argc, char *argv[]) {
         sa.sin_addr.s_addr = 0;
 
         if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
-            printf("Bind failed on %s: %d", ip, WSAGetLastError());
+            printf("Bind failed on %s: %d\n", ip, WSAGetLastError());
             exit(1);
         }
 
         if (listen(sock, 1) == -1) {
-            printf("Listen failed on %s: %d", ip, WSAGetLastError());
+            printf("Listen failed on %s: %d\n", ip, WSAGetLastError());
             exit(1);
         }
 
         SOCKET conn = accept(sock, NULL, NULL);
         if (conn == -1) {
-            printf("Failed to accept connection from %s: %d", ip, WSAGetLastError());
+            printf("Failed to accept connection from %s: %d\n", ip, WSAGetLastError());
             exit(1);
         }
 
         closesocket(sock);
         sock = conn;
     } else {
-        printf("Connected to server on %s", ip);
+        printf("Connected to server on %s\n", ip);
     }
 
     char line[256];
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
                 if (res == -1) {
                 }
 
-                printf("%.*s", res, line);
+                printf("%.*s\n", res, line);
                 break;
         }
     }
