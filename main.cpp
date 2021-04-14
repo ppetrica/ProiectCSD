@@ -1,12 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 
-#include <windows.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <assert.h>
+#include <iostream>
 #include "AES.h"
 #include "Mix.h"
 #include "Communication.h"
@@ -34,7 +29,6 @@ int main(int argc, char *argv[]) {
     }
     int port = 16969;
 
-    // doar de SOCKET avem nevoie?
     SOCKET sock = create_socket(ip, port, server);
 
     // max 256 de caractere mesajul

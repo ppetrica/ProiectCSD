@@ -144,7 +144,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AES.cpp" />
+    <ClCompile Include="Communication.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mix.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AES.h" />

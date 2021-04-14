@@ -1,6 +1,7 @@
 #include "AES.h"
 #include "assert.h"
 
+
 /* aes sbox and invert-sbox */
 static const uint8_t sbox[256] = {
        0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -21,7 +22,6 @@ static const uint8_t sbox[256] = {
        0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-
 static const uint8_t ibox[256] = {
        0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
        0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
@@ -40,160 +40,6 @@ static const uint8_t ibox[256] = {
        0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
        0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
-
-
-uint32_t substitute(uint32_t x) {
-    return (sbox[(x & 0xff000000) >> 24] << 24) |
-        (sbox[(x & 0x00ff0000) >> 16] << 16) |
-        (sbox[(x & 0x0000ff00) >> 8] << 8) |
-        sbox[(x & 0x000000ff)];
-}
-
-
-uint32_t rotate(uint32_t x) {
-    return ((x & 0xff000000) >> 24) | (x << 8);
-}
-
-
-void key_expansion(uint8_t key[16], uint32_t w[44]) {
-    uint8_t rcon[10] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36 };
-    for (int i = 0; i < 4; ++i)
-        w[i] = (key[4 * i] << 24) | (key[4 * i + 1] << 16) | (key[4 * i + 2] << 8) | key[4 * i + 3];
-
-    for (int i = 4; i < 44; ++i) {
-        uint32_t tmp = w[i - 1];
-        if (i % 4 == 0)
-            tmp = substitute(rotate(tmp)) ^ ((uint32_t)rcon[(i / 4) - 1] << 24);
-
-        w[i] = w[i - 4] ^ tmp;
-    }
-}
-
-
-uint8_t mul(uint8_t a, uint8_t b) {
-    uint8_t res = 0;
-    while (a) {
-        if (a & 1) res ^= b;
-
-        uint8_t carry = b & 0x80;
-
-        b <<= 1;
-
-        if (carry) b ^= 0x1B;
-
-        a >>= 1;
-    }
-
-    return res;
-}
-
-
-void copy_input(const uint8_t* inp, uint8_t b[4][4]) {
-    for (int j = 0; j < 4; ++j) {
-        for (int k = 0; k < 4; ++k) {
-            b[j][k] = inp[k * 4 + j];
-        }
-    }
-}
-
-
-void copy_key(const uint32_t* rk, uint8_t rkey[4][4]) {
-    for (int j = 0; j < 4; ++j) {
-        for (int k = 0; k < 4; ++k) {
-            uint8_t shift = (3 - j) << 3;
-            rkey[j][k] = (rk[k] & (0xff << shift)) >> shift;
-        }
-    }
-}
-
-
-void add_key(uint8_t b[4][4], const uint8_t rkey[4][4]) {
-    for (int j = 0; j < 4; ++j) {
-        for (int k = 0; k < 4; ++k) {
-            b[j][k] = b[j][k] ^ rkey[j][k];
-        }
-    }
-}
-
-
-void substitute_block(uint8_t b[4][4], const uint8_t* box) {
-    for (int j = 0; j < 4; ++j) {
-        for (int k = 0; k < 4; ++k) {
-            b[j][k] = box[b[j][k]];
-        }
-    }
-}
-
-
-void shift_rows(uint8_t b[4][4]) {
-    for (int j = 1; j < 4; ++j) {
-        uint8_t tmp[4];
-        tmp[3] = b[j][(j + 3) & 3];
-        tmp[2] = b[j][(j + 2) & 3];
-        tmp[1] = b[j][(j + 1) & 3];
-        tmp[0] = b[j][j];
-
-        b[j][3] = tmp[3];
-        b[j][2] = tmp[2];
-        b[j][1] = tmp[1];
-        b[j][0] = tmp[0];
-    }
-}
-
-void shift_rev_rows(uint8_t b[4][4]) {
-    for (int j = 1; j < 4; ++j) {
-        uint8_t tmp[4];
-        tmp[3] = b[j][(3 - j + 4) & 3];
-        tmp[2] = b[j][(2 - j + 4) & 3];
-        tmp[1] = b[j][(1 - j + 4) & 3];
-        tmp[0] = b[j][(0 - j + 4) & 3];
-
-        b[j][3] = tmp[3];
-        b[j][2] = tmp[2];
-        b[j][1] = tmp[1];
-        b[j][0] = tmp[0];
-    }
-}
-
-void mix_columns(uint8_t b[4][4]) {
-    for (int k = 0; k < 4; ++k) {
-        uint8_t tmp[4];
-
-        tmp[0] = mul(2, b[0][k]) ^ mul(3, b[1][k]) ^ b[2][k] ^ b[3][k];
-        tmp[1] = b[0][k] ^ mul(2, b[1][k]) ^ mul(3, b[2][k]) ^ b[3][k];
-        tmp[2] = b[0][k] ^ b[1][k] ^ mul(2, b[2][k]) ^ mul(3, b[3][k]);
-        tmp[3] = mul(3, b[0][k]) ^ b[1][k] ^ b[2][k] ^ mul(2, b[3][k]);
-
-        b[0][k] = tmp[0];
-        b[1][k] = tmp[1];
-        b[2][k] = tmp[2];
-        b[3][k] = tmp[3];
-    }
-}
-
-void mix_rev_columns(uint8_t b[4][4]) {
-    for (int k = 0; k < 4; ++k) {
-        uint8_t tmp[4];
-
-        tmp[0] = mul(0x0e, b[0][k]) ^ mul(0x0b, b[1][k]) ^ mul(0x0d, b[2][k]) ^ mul(0x09, b[3][k]);
-        tmp[1] = mul(0x09, b[0][k]) ^ mul(0x0e, b[1][k]) ^ mul(0x0b, b[2][k]) ^ mul(0x0d, b[3][k]);
-        tmp[2] = mul(0x0d, b[0][k]) ^ mul(0x09, b[1][k]) ^ mul(0x0e, b[2][k]) ^ mul(0x0b, b[3][k]);
-        tmp[3] = mul(0x0b, b[0][k]) ^ mul(0x0d, b[1][k]) ^ mul(0x09, b[2][k]) ^ mul(0x0e, b[3][k]);
-
-        b[0][k] = tmp[0];
-        b[1][k] = tmp[1];
-        b[2][k] = tmp[2];
-        b[3][k] = tmp[3];
-    }
-}
-
-void copy_output(uint8_t b[4][4], uint8_t* outp) {
-    for (int j = 0; j < 4; ++j) {
-        for (int k = 0; k < 4; ++k) {
-            outp[k * 4 + j] = b[j][k];
-        }
-    }
-}
 
 
 void aes_encrypt(uint8_t* data, size_t len, uint8_t* out, uint8_t key[16]) {
@@ -266,4 +112,155 @@ void aes_decrypt(uint8_t* data, size_t len, uint8_t* out, uint8_t key[16]) {
         copy_output(b, outp);
     }
 }
+
+
+uint32_t substitute(uint32_t x) {
+    return (sbox[(x & 0xff000000) >> 24] << 24) |
+        (sbox[(x & 0x00ff0000) >> 16] << 16) |
+        (sbox[(x & 0x0000ff00) >> 8] << 8) |
+        sbox[(x & 0x000000ff)];
+}
+
+uint32_t rotate(uint32_t x) {
+    return ((x & 0xff000000) >> 24) | (x << 8);
+}
+
+uint8_t mul(uint8_t a, uint8_t b) {
+    uint8_t res = 0;
+    while (a) {
+        if (a & 1) res ^= b;
+
+        uint8_t carry = b & 0x80;
+
+        b <<= 1;
+
+        if (carry) b ^= 0x1B;
+
+        a >>= 1;
+    }
+
+    return res;
+}
+
+
+void key_expansion(uint8_t key[16], uint32_t w[44]) {
+    uint8_t rcon[10] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36 };
+    for (int i = 0; i < 4; ++i)
+        w[i] = (key[4 * i] << 24) | (key[4 * i + 1] << 16) | (key[4 * i + 2] << 8) | key[4 * i + 3];
+
+    for (int i = 4; i < 44; ++i) {
+        uint32_t tmp = w[i - 1];
+        if (i % 4 == 0)
+            tmp = substitute(rotate(tmp)) ^ ((uint32_t)rcon[(i / 4) - 1] << 24);
+
+        w[i] = w[i - 4] ^ tmp;
+    }
+}
+
+
+void copy_input(const uint8_t* inp, uint8_t b[4][4]) {
+    for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            b[j][k] = inp[k * 4 + j];
+        }
+    }
+}
+
+void copy_output(uint8_t b[4][4], uint8_t* outp) {
+    for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            outp[k * 4 + j] = b[j][k];
+        }
+    }
+}
+
+void copy_key(const uint32_t* rk, uint8_t rkey[4][4]) {
+    for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            uint8_t shift = (3 - j) << 3;
+            rkey[j][k] = (rk[k] & (0xff << shift)) >> shift;
+        }
+    }
+}
+
+
+void substitute_block(uint8_t b[4][4], const uint8_t* box) {
+    for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            b[j][k] = box[b[j][k]];
+        }
+    }
+}
+
+void mix_columns(uint8_t b[4][4]) {
+    for (int k = 0; k < 4; ++k) {
+        uint8_t tmp[4];
+
+        tmp[0] = mul(2, b[0][k]) ^ mul(3, b[1][k]) ^ b[2][k] ^ b[3][k];
+        tmp[1] = b[0][k] ^ mul(2, b[1][k]) ^ mul(3, b[2][k]) ^ b[3][k];
+        tmp[2] = b[0][k] ^ b[1][k] ^ mul(2, b[2][k]) ^ mul(3, b[3][k]);
+        tmp[3] = mul(3, b[0][k]) ^ b[1][k] ^ b[2][k] ^ mul(2, b[3][k]);
+
+        b[0][k] = tmp[0];
+        b[1][k] = tmp[1];
+        b[2][k] = tmp[2];
+        b[3][k] = tmp[3];
+    }
+}
+
+void mix_rev_columns(uint8_t b[4][4]) {
+    for (int k = 0; k < 4; ++k) {
+        uint8_t tmp[4];
+
+        tmp[0] = mul(0x0e, b[0][k]) ^ mul(0x0b, b[1][k]) ^ mul(0x0d, b[2][k]) ^ mul(0x09, b[3][k]);
+        tmp[1] = mul(0x09, b[0][k]) ^ mul(0x0e, b[1][k]) ^ mul(0x0b, b[2][k]) ^ mul(0x0d, b[3][k]);
+        tmp[2] = mul(0x0d, b[0][k]) ^ mul(0x09, b[1][k]) ^ mul(0x0e, b[2][k]) ^ mul(0x0b, b[3][k]);
+        tmp[3] = mul(0x0b, b[0][k]) ^ mul(0x0d, b[1][k]) ^ mul(0x09, b[2][k]) ^ mul(0x0e, b[3][k]);
+
+        b[0][k] = tmp[0];
+        b[1][k] = tmp[1];
+        b[2][k] = tmp[2];
+        b[3][k] = tmp[3];
+    }
+}
+
+void shift_rows(uint8_t b[4][4]) {
+    for (int j = 1; j < 4; ++j) {
+        uint8_t tmp[4];
+        tmp[3] = b[j][(j + 3) & 3];
+        tmp[2] = b[j][(j + 2) & 3];
+        tmp[1] = b[j][(j + 1) & 3];
+        tmp[0] = b[j][j];
+
+        b[j][3] = tmp[3];
+        b[j][2] = tmp[2];
+        b[j][1] = tmp[1];
+        b[j][0] = tmp[0];
+    }
+}
+
+void shift_rev_rows(uint8_t b[4][4]) {
+    for (int j = 1; j < 4; ++j) {
+        uint8_t tmp[4];
+        tmp[3] = b[j][(3 - j + 4) & 3];
+        tmp[2] = b[j][(2 - j + 4) & 3];
+        tmp[1] = b[j][(1 - j + 4) & 3];
+        tmp[0] = b[j][(0 - j + 4) & 3];
+
+        b[j][3] = tmp[3];
+        b[j][2] = tmp[2];
+        b[j][1] = tmp[1];
+        b[j][0] = tmp[0];
+    }
+}
+
+void add_key(uint8_t b[4][4], const uint8_t rkey[4][4]) {
+    for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 4; ++k) {
+            b[j][k] = b[j][k] ^ rkey[j][k];
+        }
+    }
+}
+
+
 
