@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         int res;
         switch (line[0]) {
             case 's':
-                send_message(sock, message, l - 2, key);
+                send_message(sock, message, l - 3, key);
                 break;
             case 'r':
                 res = recv_message(sock, line, 256 + 16, key);

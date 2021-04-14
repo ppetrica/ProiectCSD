@@ -23,10 +23,10 @@ int recv_message(SOCKET sock, char* message, size_t len, uint8_t* key) {
     int res = recv(sock, message, (int)len, 0);
     assert(res > 0 && res <= len && (res & 0xf) == 0);
     
+    aes_decrypt((uint8_t*)message, res, (uint8_t*)message, key);
+    
     uint8_t padding = message[res - 1];
     size_t total_size = (size_t)res - padding;
-
-    aes_decrypt((uint8_t*)message, res, (uint8_t*)message, key);
 
     return (int)total_size;
 }
