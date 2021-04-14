@@ -4,6 +4,34 @@
 #include <ws2tcpip.h>
 #include <iostream>
 
+
+int send_message(SOCKET sock, char *message, size_t len, uint8_t *key) {
+    size_t n_blocks = (len >> 4) + 1;
+    size_t total_size = n_blocks << 4;
+    size_t padding = total_size - len;
+
+    memset(message + len, (int)padding, padding);
+    aes_encrypt((uint8_t*)message, total_size, (uint8_t*)message, key);
+
+    assert(send(sock, message, (int)total_size, 0) == total_size);
+
+    return 0;
+}
+
+
+int recv_message(SOCKET sock, char* message, size_t len, uint8_t* key) {
+    int res = recv(sock, message, (int)len, 0);
+    assert(res > 0 && res <= len && (res & 0xf) == 0);
+    
+    uint8_t padding = message[res - 1];
+    size_t total_size = (size_t)res - padding;
+
+    aes_decrypt((uint8_t*)message, res, (uint8_t*)message, key);
+
+    return (int)total_size;
+}
+
+
 int send_file(SOCKET sock, const char* path, uint8_t *key) {
     HANDLE f = CreateFile(path,
         GENERIC_READ,

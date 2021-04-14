@@ -37,39 +37,31 @@ int main(int argc, char *argv[]) {
     // doar de SOCKET avem nevoie?
     SOCKET sock = create_socket(ip, port, server);
 
-    char line[256];
+    // max 256 de caractere mesajul
+    char line[2 + 256 + 16];
 
-    int res;
     bool exit_requested = false;
     while (!exit_requested) {
         printf("%s> ", ip);
-        fgets(line, sizeof(line) - 1, stdin);
+        fgets(line, 256 + 2, stdin);
         size_t l = strlen(line);
-        const char* path = line + 2;
-
+        char* message = line + 2;
+        int res;
         switch (line[0]) {
             case 's':
-                if (send(sock, line + 2, (int)(l - 3), 0) == -1) {
-                }
+                send_message(sock, message, l - 2, key);
                 break;
             case 'r':
-                res = recv(sock, line, 128, 0); 
-                if (res == -1) {
-                    if (WSAGetLastError() == WSAECONNRESET) {
-                        printf("Peer disconnected\n");
-                        return 0;
-                    }
-                }
-
+                res = recv_message(sock, line, 256 + 16, key);
                 printf("%.*s\n", res, line);
                 break;
             case 'f':
                 line[l - 1] = '\0';
-                if (send_file(sock, path, key)) continue;
+                if (send_file(sock, message, key)) continue;
                 break;
             case 'g':
                 line[l - 1] = '\0';
-                if (recv_file(sock, path, key)) continue;
+                if (recv_file(sock, message, key)) continue;
                 break;
         }
     }
