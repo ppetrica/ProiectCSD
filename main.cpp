@@ -13,9 +13,6 @@
 
 
 int main(int argc, char *argv[]) {
-    test_aes();
-    exit(0);
-
     if (argc < 2) {
         printf("No IP provided.\nUsage: %s <ip>\n", argv[0]);
         return 1;
@@ -34,7 +31,6 @@ int main(int argc, char *argv[]) {
     // doar de SOCKET avem nevoie?
     SOCKET sock = create_socket(ip, port, server);
 
-
     char line[256];
 
     int res;
@@ -47,7 +43,7 @@ int main(int argc, char *argv[]) {
 
         switch (line[0]) {
             case 's':
-                if (send(sock, line + 2, l - 3, 0) == -1) {
+                if (send(sock, line + 2, (int)(l - 3), 0) == -1) {
                 }
                 break;
             case 'r':
@@ -64,8 +60,8 @@ int main(int argc, char *argv[]) {
             case 'f':
                 if (send_file(sock, path)) continue;
             case 'g':
+                if (recv_file(sock, path)) continue;
                 break;
-                //if (read_file)
         }
     }
 

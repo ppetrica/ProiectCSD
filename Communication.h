@@ -5,10 +5,6 @@
 #include <iostream>
 
 int send_file(SOCKET sock, const char* path) {
-    unsigned long len = strlen(path);
-    send(sock, (char*)len, sizeof(len), 0);
-    send(sock, path, len, 0);
-
     HANDLE f = CreateFile(path,
         GENERIC_READ,
         0,
@@ -24,30 +20,72 @@ int send_file(SOCKET sock, const char* path) {
     DWORD file_size_high;
     DWORD file_size_low = GetFileSize(f, &file_size_high);
 
-    size_t file_size = (file_size_high << 32) | file_size_low;
-    send(sock, (char*)&file_size, sizeof(file_size), 0);
+    size_t file_size = ((size_t)file_size_high << 32) | file_size_low;
+
+    size_t n_packets = (file_size >> 4) + 1;
+    assert(send(sock, (char*)&n_packets, sizeof(n_packets), 0) > 0);
 
     size_t rest = file_size % 16;
     size_t total_sent = 0;
     while (total_sent < file_size - rest) {
         char buf[16];
         DWORD read;
-        ReadFile(f, buf, sizeof(buf), &read, NULL);
-        send(sock, buf, sizeof(buf), 0);
+        assert(ReadFile(f, buf, sizeof(buf), &read, NULL));
+        assert(send(sock, buf, sizeof(buf), 0) > 0);
     }
 
-    if (rest != 0) {
-        char buf[16];
-        DWORD read;
-        ReadFile(f, buf, rest, &read, NULL);
-        memset(buf + read, 0, 16 - read);
-        send(sock, buf, sizeof(buf), 0);
-    }
+    char buf[16];
+    DWORD read = 0;
+    if (rest != 0)
+        assert(ReadFile(f, buf, (DWORD)rest, &read, NULL));
+    
+    memset(buf + read, 16 - read, 16 - read);
+    assert(send(sock, buf, sizeof(buf), 0) > 0);
+
+    CloseHandle(f);
+
+    return 0;
 }
 
-SOCKET create_socket(const char* ip, int port, bool server)
-{
+int recv_file(SOCKET sock, const char* path) {
+    HANDLE f = CreateFile(path,
+        GENERIC_WRITE,
+        0,
+        NULL,
+        0,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (!f) {
+        printf("File could not be opened\n");
+        return 1;
+    }
 
+    char block[16];
+
+    size_t n_packets;
+    assert(recv(sock, (char*)&n_packets, sizeof(n_packets), 0) == 0);
+    for (int i = 0; i < n_packets - 1; ++i) {
+        assert(recv(sock, block, sizeof(block), 0) == 16);
+
+        DWORD written;
+        assert(WriteFile(f, block, sizeof(block), &written, nullptr));
+    }
+
+    assert(recv(sock, block, sizeof(block), 0) == 16);
+    uint8_t padding = block[15];
+
+    if (padding != 16) {
+        DWORD written;
+        assert(WriteFile(f, block, 16 - padding, &written, nullptr));
+    }
+
+    CloseHandle(f);
+
+    return 0;
+}
+
+
+SOCKET create_socket(const char* ip, int port, bool server) {
     sockaddr_in sa;
     sa.sin_family = AF_INET;
     sa.sin_port = htons(16969);
@@ -116,4 +154,6 @@ SOCKET create_socket(const char* ip, int port, bool server)
     else {
         printf("Connected to server on %s\n", ip);
     }
+
+    return sock;
 }
