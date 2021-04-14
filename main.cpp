@@ -12,6 +12,12 @@
 #include "Communication.h"
 
 
+uint8_t key[16] = {
+   0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+};
+
+
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("No IP provided.\nUsage: %s <ip>\n", argv[0]);
@@ -59,11 +65,11 @@ int main(int argc, char *argv[]) {
                 break;
             case 'f':
                 line[l - 1] = '\0';
-                if (send_file(sock, path)) continue;
+                if (send_file(sock, path, key)) continue;
                 break;
             case 'g':
                 line[l - 1] = '\0';
-                if (recv_file(sock, path)) continue;
+                if (recv_file(sock, path, key)) continue;
                 break;
         }
     }

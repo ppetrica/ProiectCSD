@@ -4,7 +4,7 @@
 #include <ws2tcpip.h>
 #include <iostream>
 
-int send_file(SOCKET sock, const char* path) {
+int send_file(SOCKET sock, const char* path, uint8_t *key) {
     HANDLE f = CreateFile(path,
         GENERIC_READ,
         FILE_SHARE_READ,
@@ -20,26 +20,36 @@ int send_file(SOCKET sock, const char* path) {
     DWORD file_size_high;
     DWORD file_size_low = GetFileSize(f, &file_size_high);
 
-    size_t file_size = ((size_t)file_size_high << 32) | file_size_low;
+    uint64_t file_size = ((uint64_t)file_size_high << 32) | file_size_low;
+    uint64_t n_packets = (file_size >> 4) + 1;
 
-    size_t n_packets = (file_size >> 4) + 1;
-    assert(send(sock, (char*)&n_packets, sizeof(n_packets), 0) > 0);
+    char buf[16] = { 0 };
+    memcpy(buf + 8, (char *)&n_packets, 8);
+
+    aes_encrypt((uint8_t *)buf, sizeof(buf), (uint8_t *)buf, key);
+    
+    assert(send(sock, buf, sizeof(buf), 0) == 16);
 
     size_t rest = file_size % 16;
     size_t total_sent = 0;
     while (total_sent < file_size - rest) {
-        char buf[16];
         DWORD read;
         assert(ReadFile(f, buf, sizeof(buf), &read, NULL));
+        
+        aes_encrypt((uint8_t*)buf, sizeof(buf), (uint8_t*)buf, key);
+
         assert(send(sock, buf, sizeof(buf), 0) > 0);
+        total_sent += read;
     }
 
-    char buf[16];
     DWORD read = 0;
     if (rest != 0)
         assert(ReadFile(f, buf, (DWORD)rest, &read, NULL));
     
     memset(buf + read, 16 - read, 16 - read);
+    
+    aes_encrypt((uint8_t*)buf, sizeof(buf), (uint8_t*)buf, key);
+    
     assert(send(sock, buf, sizeof(buf), 0) > 0);
 
     CloseHandle(f);
@@ -47,7 +57,7 @@ int send_file(SOCKET sock, const char* path) {
     return 0;
 }
 
-int recv_file(SOCKET sock, const char* path) {
+int recv_file(SOCKET sock, const char* path, uint8_t *key) {
     HANDLE f = CreateFile(path,
         GENERIC_WRITE,
         0,
@@ -61,17 +71,23 @@ int recv_file(SOCKET sock, const char* path) {
     }
 
     char block[16];
-
+    assert(recv(sock, block, sizeof(block), 0) == sizeof(block));
+    aes_decrypt((uint8_t*)block, sizeof(block), (uint8_t*)block, key);
+    
     size_t n_packets;
-    assert(recv(sock, (char*)&n_packets, sizeof(n_packets), 0) == sizeof(n_packets));
+    memcpy(&n_packets, block + 8, 8);
+
     for (int i = 0; i < n_packets - 1; ++i) {
         assert(recv(sock, block, sizeof(block), 0) == 16);
+        aes_decrypt((uint8_t*)block, sizeof(block), (uint8_t*)block, key);
 
         DWORD written;
         assert(WriteFile(f, block, sizeof(block), &written, nullptr));
     }
 
     assert(recv(sock, block, sizeof(block), 0) == 16);
+    aes_decrypt((uint8_t*)block, sizeof(block), (uint8_t*)block, key);
+    
     uint8_t padding = block[15];
 
     if (padding != 16) {
