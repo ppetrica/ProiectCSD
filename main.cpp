@@ -58,8 +58,11 @@ int main(int argc, char *argv[]) {
                 printf("%.*s\n", res, line);
                 break;
             case 'f':
+                line[l - 1] = '\0';
                 if (send_file(sock, path)) continue;
+                break;
             case 'g':
+                line[l - 1] = '\0';
                 if (recv_file(sock, path)) continue;
                 break;
         }

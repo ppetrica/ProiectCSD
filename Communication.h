@@ -7,12 +7,12 @@
 int send_file(SOCKET sock, const char* path) {
     HANDLE f = CreateFile(path,
         GENERIC_READ,
-        0,
+        FILE_SHARE_READ,
         NULL,
-        0,
+        OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL,
         NULL);
-    if (!f) {
+    if (f == INVALID_HANDLE_VALUE) {
         printf("File not found\n");
         return 1;
     }
@@ -52,7 +52,7 @@ int recv_file(SOCKET sock, const char* path) {
         GENERIC_WRITE,
         0,
         NULL,
-        0,
+        CREATE_NEW,
         FILE_ATTRIBUTE_NORMAL,
         NULL);
     if (!f) {
@@ -63,7 +63,7 @@ int recv_file(SOCKET sock, const char* path) {
     char block[16];
 
     size_t n_packets;
-    assert(recv(sock, (char*)&n_packets, sizeof(n_packets), 0) == 0);
+    assert(recv(sock, (char*)&n_packets, sizeof(n_packets), 0) == sizeof(n_packets));
     for (int i = 0; i < n_packets - 1; ++i) {
         assert(recv(sock, block, sizeof(block), 0) == 16);
 
