@@ -34,18 +34,6 @@ int main(int argc, char *argv[]) {
     // max 256 de caractere mesajul
     char line[2 + 256 + 16];
 
-    printf(
-        "Help:\n"
-        "s - send encrypted message\n"
-        "r - receive encrypted message\n"
-        "f - send file encrypted\n"
-        "g - receive file encrypted\n"
-        "m - send message\n"
-        "l - receive message\n"
-        "n - send file\n"
-        "b - receive file\n"
-    );
-
     bool exit_requested = false;
     while (!exit_requested) {
         printf("%s> ", ip);
@@ -76,13 +64,6 @@ int main(int argc, char *argv[]) {
             case 'b':
                 line[l - 1] = '\0';
                 recv_file(sock, message, nullptr);
-                break;
-            case 'm':
-                send_message(sock, message, l - 3, nullptr);
-                break;
-            case 'l':
-                res = recv_message(sock, line, 256 + 16, nullptr);
-                printf("%.*s\n", res, line);
                 break;
         }
     }

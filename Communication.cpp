@@ -95,7 +95,7 @@ int recv_file(SOCKET sock, const char* path, uint8_t* key) {
         GENERIC_WRITE,
         0,
         NULL,
-        CREATE_NEW,
+        CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL,
         NULL);
     if (!f) {
