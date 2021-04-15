@@ -51,11 +51,19 @@ int main(int argc, char *argv[]) {
                 break;
             case 'f':
                 line[l - 1] = '\0';
-                if (send_file(sock, message, key)) continue;
+                send_file(sock, message, key);
                 break;
             case 'g':
                 line[l - 1] = '\0';
-                if (recv_file(sock, message, key)) continue;
+                recv_file(sock, message, key);
+                break;
+            case 'n':
+                line[l - 1] = '\0';
+                send_file(sock, message, nullptr);
+                break;
+            case 'b':
+                line[l - 1] = '\0';
+                recv_file(sock, message, nullptr);
                 break;
         }
     }
